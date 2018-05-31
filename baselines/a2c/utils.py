@@ -40,6 +40,10 @@ def ortho_init(scale=1.0):
     return _ortho_init
 
 def conv(x, scope, *, nf, rf, stride, pad='VALID', init_scale=1.0, data_format='NHWC', one_dim_bias=False):
+    # N: batch size
+    # H: im height
+    # W: im width
+    # C: number of channels
     if data_format == 'NHWC':
         channel_ax = 3
         strides = [1, stride, stride, 1]
@@ -51,6 +55,12 @@ def conv(x, scope, *, nf, rf, stride, pad='VALID', init_scale=1.0, data_format='
     else:
         raise NotImplementedError
     bias_var_shape = [nf] if one_dim_bias else [1, nf, 1, 1]
+    ###
+    print(x)
+    print(x.get_shape())
+    print(x.get_shape())
+    print(channel_ax)
+    ###
     nin = x.get_shape()[channel_ax].value
     wshape = [rf, rf, nin, nf]
     with tf.variable_scope(scope):
