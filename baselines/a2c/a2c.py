@@ -61,12 +61,16 @@ class Model(object):
             return policy_loss, value_loss, policy_entropy
 
         def save(save_path):
+            if save_path is None:
+                save_path = "model.pkl"
+            path = osp.join("./model", save_path)
             ps = sess.run(params)
-            make_path(osp.dirname(save_path))
-            joblib.dump(ps, save_path)
+            make_path(osp.dirname(path))
+            joblib.dump(ps, path)
 
         def load(load_path):
-            loaded_params = joblib.load(load_path)
+            path = osp.join("./model", load_path)
+            loaded_params = joblib.load(path)
             restores = []
             for p, loaded_p in zip(params, loaded_params):
                 restores.append(p.assign(loaded_p))
@@ -84,7 +88,7 @@ class Model(object):
 
 class Runner(AbstractEnvRunner):
 
-    def __init__(self, env, model, nsteps=5, gamma=0.99):
+    def __init__(self, env, model, nsteps=10, gamma=0.99):
         super().__init__(env=env, model=model, nsteps=nsteps)
         self.gamma = gamma
 
@@ -93,11 +97,18 @@ class Runner(AbstractEnvRunner):
         mb_states = self.states
         for n in range(self.nsteps):
             actions, values, states, _ = self.model.step(self.obs, self.states, self.dones)
+            ####
+            #print("obs: {}".format(self.obs))
+            #print("actions: {}".format(actions))
+            #print("values: {}".format(values))
+            #print("states: {}".format(states))
+            ####
             mb_obs.append(np.copy(self.obs))
             mb_actions.append(actions)
             mb_values.append(values)
             mb_dones.append(self.dones)
             obs, rewards, dones, _ = self.env.step(actions)
+            #s_prime, obs, rewards, _, dones = self.env.step_legacy(action)
             self.states = states
             self.dones = dones
             for n, done in enumerate(dones):
@@ -130,7 +141,7 @@ class Runner(AbstractEnvRunner):
         mb_masks = mb_masks.flatten()
         return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values
 
-def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100):
+def learn(policy, env, seed, nsteps=10, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100):
     set_global_seeds(seed)
 
     nenvs = env.num_envs
@@ -148,6 +159,13 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
         nseconds = time.time()-tstart
         fps = int((update*nbatch)/nseconds)
         if update % log_interval == 0 or update == 1:
+            ###
+            #print("len(obs):{}".format(len(obs)))
+            ##print("len(states):".format(len(states)))
+            #print("len(rewards):{}".format(len(rewards)))
+            #print("len(actions):{}".format(len(actions)))
+            #print("len(values):{}".format(len(values)))
+            ###
             ev = explained_variance(values, rewards)
             logger.record_tabular("nupdates", update)
             logger.record_tabular("total_timesteps", update*nbatch)
@@ -157,4 +175,15 @@ def learn(policy, env, seed, nsteps=5, total_timesteps=int(80e6), vf_coef=0.5, e
             logger.record_tabular("explained_variance", float(ev))
             logger.dump_tabular()
     env.close()
+    return model
+
+def init_model(policy, env, seed, nsteps=10, total_timesteps=int(80e6), vf_coef=0.5, ent_coef=0.01, max_grad_norm=0.5, lr=7e-4, lrschedule='linear', epsilon=1e-5, alpha=0.99, gamma=0.99, log_interval=100):
+    set_global_seeds(seed)
+
+    nenvs = env.num_envs
+    ob_space = env.observation_space
+    ac_space = env.action_space
+    model = Model(policy=policy, ob_space=ob_space, ac_space=ac_space, nenvs=nenvs, nsteps=nsteps, ent_coef=ent_coef, vf_coef=vf_coef,
+        max_grad_norm=max_grad_norm, lr=lr, alpha=alpha, epsilon=epsilon, total_timesteps=total_timesteps, lrschedule=lrschedule)
+    model.load
     return model
