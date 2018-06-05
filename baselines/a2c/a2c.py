@@ -63,13 +63,13 @@ class Model(object):
         def save(save_path):
             if save_path is None:
                 save_path = "model.pkl"
-            path = osp.join("./model", save_path)
+            path = osp.join("./models", save_path)
             ps = sess.run(params)
             make_path(osp.dirname(path))
             joblib.dump(ps, path)
 
         def load(load_path):
-            path = osp.join("./model", load_path)
+            path = osp.join("./models", load_path)
             loaded_params = joblib.load(path)
             restores = []
             for p, loaded_p in zip(params, loaded_params):
